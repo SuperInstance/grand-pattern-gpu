@@ -1,0 +1,64 @@
+// fleet_stats.comp — Parallel reduction to compute fleet vibe + fleet surprise
+// Uses a two-pass approach: first pass computes partial sums per workgroup,
+// second pass reduces workgroup partials to final totals.
+// For simplicity, this shader does a single-pass block reduction.
+
+#version 450
+
+layout(local_size_x = 256) in;
+
+layout(std430, binding = 0) readonly buffer Rooms {
+    float rooms[];
+};
+
+layout(std430, binding = 1) readonly buffer Surprises {
+    float surprises[];
+};
+
+layout(std430, binding = 2) buffer PartialVibes {
+    float partial_vibes[];   // one per workgroup
+};
+
+layout(std430, binding = 3) buffer PartialSurprises {
+    float partial_surprises[];  // one per workgroup
+};
+
+layout(push_constant) uniform PushConstants {
+    uint n_rooms;
+    uint n_workgroups;
+};
+
+shared float shared_vibes[256];
+shared float shared_surprises[256];
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    uint local_idx = gl_LocalInvocationID.x;
+    uint group_idx = gl_WorkGroupID.x;
+
+    // Load into shared memory
+    if (idx < n_rooms) {
+        shared_vibes[local_idx] = rooms[idx];
+        shared_surprises[local_idx] = surprises[idx];
+    } else {
+        shared_vibes[local_idx] = 0.0;
+        shared_surprises[local_idx] = 0.0;
+    }
+
+    barrier();
+
+    // Parallel reduction in shared memory
+    for (uint stride = 128; stride > 0; stride >>= 1) {
+        if (local_idx < stride) {
+            shared_vibes[local_idx] += shared_vibes[local_idx + stride];
+            shared_surprises[local_idx] += shared_surprises[local_idx + stride];
+        }
+        barrier();
+    }
+
+    // Thread 0 writes the workgroup partial sum
+    if (local_idx == 0 && group_idx < n_workgroups) {
+        partial_vibes[group_idx] = shared_vibes[0];
+        partial_surprises[group_idx] = shared_surprises[0];
+    }
+}

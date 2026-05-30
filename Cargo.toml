@@ -1,0 +1,17 @@
+[package]
+name = "grand-pattern-gpu"
+version = "0.1.0"
+edition = "2021"
+description = "GPU-accelerated graph diffusion — Vulkan compute shaders + parallel CPU implementations for the Grand Pattern"
+license = "MIT"
+repository = "https://github.com/SuperInstance/grand-pattern-gpu"
+keywords = ["gpu", "vulkan", "graph", "diffusion", "compute"]
+categories = ["algorithms", "concurrency", "science"]
+
+[dependencies]
+
+[dev-dependencies]
+
+[[bench]]
+name = "diffusion_bench"
+harness = false

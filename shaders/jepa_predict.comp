@@ -1,0 +1,54 @@
+// jepa_predict.comp — Weighted average prediction across rooms
+// Each invocation predicts one room's value from its weighted neighbors.
+
+#version 450
+
+layout(local_size_x = 256) in;
+
+layout(std430, binding = 0) readonly buffer Rooms {
+    float rooms[];
+};
+
+layout(std430, binding = 1) writeonly buffer Predictions {
+    float predictions[];
+};
+
+layout(std430, binding = 2) readonly buffer WeightOffsets {
+    uint weight_offsets[];
+};
+
+layout(std430, binding = 3) readonly buffer WeightCounts {
+    uint weight_counts[];
+};
+
+layout(std430, binding = 4) readonly buffer WeightIndices {
+    uint weight_indices[];
+};
+
+layout(std430, binding = 5) readonly buffer WeightValues {
+    float weight_values[];
+};
+
+layout(push_constant) uniform PushConstants {
+    uint n_rooms;
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= n_rooms) return;
+
+    float sum = 0.0;
+    float wtotal = 0.0;
+
+    uint offset = weight_offsets[idx];
+    uint count = weight_counts[idx];
+
+    for (uint w = 0; w < count; w++) {
+        uint j = weight_indices[offset + w];
+        float wt = weight_values[offset + w];
+        sum += wt * rooms[j];
+        wtotal += wt;
+    }
+
+    predictions[idx] = (wtotal > 0.0) ? (sum / wtotal) : rooms[idx];
+}

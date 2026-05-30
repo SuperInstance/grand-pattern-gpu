@@ -1,0 +1,55 @@
+// diffuse.comp — Graph diffusion kernel
+// Each invocation handles one room.
+// Reads neighbor contributions from edges buffer, computes delta, writes updated value.
+
+#version 450
+
+layout(local_size_x = 256) in;
+
+layout(std430, binding = 0) buffer RoomsIn {
+    float rooms_in[];
+};
+
+layout(std430, binding = 1) buffer RoomsOut {
+    float rooms_out[];
+};
+
+layout(std430, binding = 2) readonly buffer EdgeOffsets {
+    uint edge_offsets[];   // edge_offsets[i] = start index in edge_data for room i
+};
+
+layout(std430, binding = 3) readonly buffer EdgeCounts {
+    uint edge_counts[];    // edge_counts[i] = number of edges for room i
+};
+
+layout(std430, binding = 4) readonly buffer EdgeNeighbors {
+    uint edge_neighbors[]; // neighbor room index
+};
+
+layout(std430, binding = 5) readonly buffer EdgeWeights {
+    float edge_weights[];  // edge weight
+};
+
+layout(push_constant) uniform PushConstants {
+    uint n_rooms;
+    float rate;
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= n_rooms) return;
+
+    float current = rooms_in[idx];
+    float delta = 0.0;
+
+    uint offset = edge_offsets[idx];
+    uint count = edge_counts[idx];
+
+    for (uint e = 0; e < count; e++) {
+        uint neighbor = edge_neighbors[offset + e];
+        float weight = edge_weights[offset + e];
+        delta += weight * (rooms_in[neighbor] - current);
+    }
+
+    rooms_out[idx] = current + rate * delta;
+}

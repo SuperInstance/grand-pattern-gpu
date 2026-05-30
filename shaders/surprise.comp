@@ -1,0 +1,28 @@
+// surprise.comp — Compute surprise |predicted - actual| for all rooms in parallel
+
+#version 450
+
+layout(local_size_x = 256) in;
+
+layout(std430, binding = 0) readonly buffer Actual {
+    float actual[];
+};
+
+layout(std430, binding = 1) readonly buffer Predicted {
+    float predicted[];
+};
+
+layout(std430, binding = 2) writeonly buffer SurpriseOut {
+    float surprise_out[];
+};
+
+layout(push_constant) uniform PushConstants {
+    uint n_rooms;
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= n_rooms) return;
+
+    surprise_out[idx] = abs(actual[idx] - predicted[idx]);
+}
